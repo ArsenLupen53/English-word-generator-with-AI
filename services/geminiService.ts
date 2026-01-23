@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { WordEntry, VocabularyRequest } from "../types";
+import { WordEntry, VocabularyRequest, ExampleSentence } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -113,5 +113,36 @@ export const fetchWordAudio = async (word: string): Promise<string> => {
   } catch (error) {
     console.error("Error fetching audio:", error);
     throw new Error("Ses üretilirken bir hata oluştu.");
+  }
+};
+
+export const fetchExtraExample = async (word: string, currentExamples: string[]): Promise<ExampleSentence> => {
+  const prompt = `Generate one additional sophisticated B2/C1 level example sentence for the word "${word}".
+  
+  Avoid these existing examples: ${currentExamples.join(' | ')}.
+  Provide the English sentence and its Turkish translation.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            english: { type: Type.STRING },
+            turkish: { type: Type.STRING }
+          },
+          required: ["english", "turkish"]
+        }
+      }
+    });
+
+    const jsonStr = response.text.trim();
+    return JSON.parse(jsonStr) as ExampleSentence;
+  } catch (error) {
+    console.error("Error fetching extra example:", error);
+    throw new Error("Yeni örnek oluşturulurken bir hata oluştu.");
   }
 };

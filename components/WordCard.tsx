@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { WordEntry } from '../types';
-import { fetchWordAudio } from '../services/geminiService';
+import { WordEntry, ExampleSentence } from '../types';
+import { fetchWordAudio, fetchExtraExample } from '../services/geminiService';
 
 interface WordCardProps {
   entry: WordEntry;
@@ -41,6 +41,8 @@ async function decodeAudioData(
 
 export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshing }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [extraExamples, setExtraExamples] = useState<ExampleSentence[]>([]);
+  const [isLoadingExample, setIsLoadingExample] = useState(false);
 
   const handlePlayAudio = async () => {
     if (isPlaying) return;
@@ -61,6 +63,22 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
       setIsPlaying(false);
     }
   };
+
+  const handleAddExample = async () => {
+    if (isLoadingExample) return;
+    setIsLoadingExample(true);
+    try {
+      const existingText = [...entry.examples, ...extraExamples].map(ex => ex.english);
+      const newEx = await fetchExtraExample(entry.word, existingText);
+      setExtraExamples(prev => [...prev, newEx]);
+    } catch (error) {
+      console.error("Adding example failed:", error);
+    } finally {
+      setIsLoadingExample(false);
+    }
+  };
+
+  const allExamples = [...entry.examples, ...extraExamples];
 
   return (
     <div className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 mb-6 group relative ${isRefreshing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
@@ -124,12 +142,29 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
             <span className="w-4 h-[1px] bg-indigo-200"></span>
             Examples
           </h3>
-          {entry.examples.map((ex, idx) => (
-            <div key={idx} className="bg-slate-50/80 p-4 rounded-xl border-l-4 border-indigo-200 hover:border-indigo-400 transition-colors">
-              <p className="text-slate-800 font-medium mb-1">“{ex.english}”</p>
-              <p className="text-slate-500 text-sm">“{ex.turkish}”</p>
-            </div>
-          ))}
+          <div className="space-y-4">
+            {allExamples.map((ex, idx) => (
+              <div key={idx} className="bg-slate-50/80 p-4 rounded-xl border-l-4 border-indigo-200 hover:border-indigo-400 transition-colors animate-in fade-in slide-in-from-left-2 duration-300">
+                <p className="text-slate-800 font-medium mb-1">“{ex.english}”</p>
+                <p className="text-slate-500 text-sm">“{ex.turkish}”</p>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={handleAddExample}
+              disabled={isLoadingExample}
+              className="group flex items-center gap-2 text-indigo-500 hover:text-indigo-700 font-semibold text-sm transition-all bg-indigo-50/50 hover:bg-indigo-50 px-4 py-2 rounded-full border border-indigo-100"
+            >
+              {isLoadingExample ? (
+                <i className="fas fa-circle-notch animate-spin"></i>
+              ) : (
+                <i className="fas fa-plus group-hover:rotate-90 transition-transform"></i>
+              )}
+              {isLoadingExample ? 'Örnek Hazırlanıyor...' : 'Daha Fazla Örnek'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
