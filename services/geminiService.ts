@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { WordEntry, VocabularyRequest } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -89,5 +89,29 @@ export const fetchSingleRandomWord = async (level: 'B2' | 'C1' | 'Mixed', exclud
   } catch (error) {
     console.error("Error fetching single word:", error);
     throw new Error("Kelime yenilenirken bir hata oluştu.");
+  }
+};
+
+export const fetchWordAudio = async (word: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: `Pronounce the word clearly: ${word}` }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("No audio data received");
+    return base64Audio;
+  } catch (error) {
+    console.error("Error fetching audio:", error);
+    throw new Error("Ses üretilirken bir hata oluştu.");
   }
 };

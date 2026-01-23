@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { WordEntry } from '../types';
+import { fetchWordAudio } from '../services/geminiService';
 
 interface WordCardProps {
   entry: WordEntry;
@@ -8,7 +9,59 @@ interface WordCardProps {
   isRefreshing?: boolean;
 }
 
+// Audio decoding utilities
+function decodeBase64(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
 export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshing }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handlePlayAudio = async () => {
+    if (isPlaying) return;
+    setIsPlaying(true);
+    try {
+      const base64Audio = await fetchWordAudio(entry.word);
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const decodedBytes = decodeBase64(base64Audio);
+      const audioBuffer = await decodeAudioData(decodedBytes, audioCtx, 24000, 1);
+      
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioCtx.destination);
+      source.onended = () => setIsPlaying(false);
+      source.start();
+    } catch (error) {
+      console.error("Audio playback failed:", error);
+      setIsPlaying(false);
+    }
+  };
+
   return (
     <div className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 mb-6 group relative ${isRefreshing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
       {isRefreshing && (
@@ -20,10 +73,18 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
       <div className="p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div className="flex flex-col gap-1">
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-center gap-3">
               <h2 className="text-3xl font-serif font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
                 {entry.word}
               </h2>
+              <button 
+                onClick={handlePlayAudio}
+                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all ${isPlaying ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                title="Telaffuzu Dinle"
+                disabled={isPlaying}
+              >
+                <i className={`fas ${isPlaying ? 'fa-volume-up animate-pulse' : 'fa-volume-high'}`}></i>
+              </button>
               <span className="text-sm font-medium px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded">
                 {entry.cefrLevel}
               </span>
