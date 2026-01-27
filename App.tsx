@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { fetchAdvancedVocabulary, fetchSingleRandomWord } from './services/geminiService';
 import { WordEntry, VocabularyRequest } from './types';
 import { WordCard } from './components/WordCard';
@@ -9,10 +9,20 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [refreshingIndices, setRefreshingIndices] = useState<Set<number>>(new Set());
   const [words, setWords] = useState<WordEntry[]>([]);
+  const [seenWords, setSeenWords] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(DEFAULT_WORD_COUNT);
   const [level, setLevel] = useState<VocabularyRequest['level']>('Mixed');
   const [lastRequest, setLastRequest] = useState<{ count: number; level: string } | null>(null);
+
+  // Helper to add words to memory
+  const addToSeen = (newWords: string[]) => {
+    setSeenWords(prev => {
+      const next = new Set(prev);
+      newWords.forEach(w => next.add(w.toLowerCase().trim()));
+      return next;
+    });
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -20,8 +30,10 @@ const App: React.FC = () => {
     setWords([]); 
     
     try {
-      const result = await fetchAdvancedVocabulary({ count, level });
+      // Pass all seen words to exclude them
+      const result = await fetchAdvancedVocabulary({ count, level }, Array.from(seenWords));
       setWords(result);
+      addToSeen(result.map(w => w.word));
       setLastRequest({ count, level });
       window.scrollTo({ top: 200, behavior: 'smooth' });
     } catch (err: any) {
@@ -38,7 +50,12 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const exclude = words.map(w => w.word);
+      // Exclude everything seen in this session + currently displayed words
+      const exclude = Array.from(new Set([
+        ...Array.from(seenWords),
+        ...words.map(w => w.word.toLowerCase().trim())
+      ]));
+      
       const newWord = await fetchSingleRandomWord(level, exclude);
       
       setWords(prev => {
@@ -46,6 +63,7 @@ const App: React.FC = () => {
         next[index] = newWord;
         return next;
       });
+      addToSeen([newWord.word]);
     } catch (err: any) {
       setError(err.message || "Kelime güncellenemedi.");
     } finally {
@@ -125,6 +143,13 @@ const App: React.FC = () => {
             )}
           </button>
         </div>
+        
+        {seenWords.size > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+            <span>Oturum Belleği Aktif</span>
+            <span>{seenWords.size} Kelime Görüldü</span>
+          </div>
+        )}
       </section>
 
       {error && (

@@ -28,16 +28,18 @@ const WORD_SCHEMA = {
   required: ["word", "phonetic", "partOfSpeech", "definition", "definitionTurkish", "examples", "cefrLevel"]
 };
 
-export const fetchAdvancedVocabulary = async (request: VocabularyRequest): Promise<WordEntry[]> => {
+export const fetchAdvancedVocabulary = async (request: VocabularyRequest, excludeWords: string[] = []): Promise<WordEntry[]> => {
   const levelPrompt = request.level === 'Mixed' ? 'B2 or C1' : request.level;
   const randomSalt = Math.random().toString(36).substring(7);
+  const excludeStr = excludeWords.length > 0 ? `CRITICAL: Do NOT use any of these words: ${excludeWords.join(', ')}.` : '';
 
   const prompt = `Generate exactly ${request.count} unique, challenging, and sophisticated English vocabulary words at ${levelPrompt} level. 
   
   CRITICAL INSTRUCTIONS:
   1. The selection must be COMPLETELY RANDOM from the entire B2/C1 lexicon. 
   2. Avoid basic words; focus on nuanced academic, literary, or professional terms.
-  3. Ensure this set is unique (Salt: ${randomSalt}).
+  3. ${excludeStr}
+  4. Ensure this set is unique (Salt: ${randomSalt}).
   
   Format the output as a JSON array of word objects.`;
 
@@ -66,9 +68,10 @@ export const fetchAdvancedVocabulary = async (request: VocabularyRequest): Promi
 export const fetchSingleRandomWord = async (level: 'B2' | 'C1' | 'Mixed', excludeWords: string[] = []): Promise<WordEntry> => {
   const levelPrompt = level === 'Mixed' ? 'B2 or C1' : level;
   const randomSalt = Math.random().toString(36).substring(7);
+  const excludeStr = excludeWords.length > 0 ? `CRITICAL: Do NOT include any of these words: ${excludeWords.join(', ')}.` : '';
 
   const prompt = `Generate exactly ONE unique and challenging English vocabulary word at ${levelPrompt} level. 
-  IMPORTANT: Do NOT include any of these words: ${excludeWords.join(', ')}.
+  ${excludeStr}
   Focus on academic or sophisticated professional vocabulary. (Salt: ${randomSalt}).
   
   Format the output as a single JSON word object.`;
