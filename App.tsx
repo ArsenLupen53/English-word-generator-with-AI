@@ -11,7 +11,7 @@ const App: React.FC = () => {
   const [words, setWords] = useState<WordEntry[]>([]);
   const [seenWords, setSeenWords] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [count, setCount] = useState(DEFAULT_WORD_COUNT);
+  const [count, setCount] = useState<number | ''>(DEFAULT_WORD_COUNT);
   const [level, setLevel] = useState<VocabularyRequest['level']>('Mixed');
   const [lastRequest, setLastRequest] = useState<{ count: number; level: string } | null>(null);
 
@@ -25,16 +25,17 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
+    const finalCount = count === '' || count <= 0 ? 1 : count;
     setLoading(true);
     setError(null);
     setWords([]); 
     
     try {
       // Pass all seen words to exclude them
-      const result = await fetchAdvancedVocabulary({ count, level }, Array.from(seenWords));
+      const result = await fetchAdvancedVocabulary({ count: finalCount, level }, Array.from(seenWords));
       setWords(result);
       addToSeen(result.map(w => w.word));
-      setLastRequest({ count, level });
+      setLastRequest({ count: finalCount, level });
       window.scrollTo({ top: 200, behavior: 'smooth' });
     } catch (err: any) {
       setError(err.message || "Something went wrong");
@@ -75,6 +76,19 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === '') {
+      setCount('');
+    } else {
+      const parsed = parseInt(val, 10);
+      if (!isNaN(parsed)) {
+        // Clamp between 1 and MAX_WORD_COUNT, but allow temporary typing
+        setCount(Math.min(MAX_WORD_COUNT, parsed));
+      }
+    }
+  };
+
   const getLevelLabel = (id: string) => LEVELS.find(l => l.id === id)?.label || id;
 
   return (
@@ -98,7 +112,8 @@ const App: React.FC = () => {
                 min="1"
                 max={MAX_WORD_COUNT}
                 value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
+                onChange={handleCountChange}
+                placeholder="1"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-slate-900 font-semibold text-lg"
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -127,7 +142,7 @@ const App: React.FC = () => {
 
           <button
             onClick={handleGenerate}
-            disabled={loading}
+            disabled={loading || count === ''}
             className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg active:transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group h-[60px]`}
           >
             {loading ? (
