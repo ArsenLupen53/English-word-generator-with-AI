@@ -12,7 +12,7 @@ const WORD_SCHEMA = {
     partOfSpeech: { type: Type.STRING },
     definition: { type: Type.STRING },
     definitionTurkish: { type: Type.STRING },
-    cefrLevel: { type: Type.STRING, description: "B2 or C1" },
+    cefrLevel: { type: Type.STRING, description: "A1, A2, A2+, B1, B1+, B2, C1, or C2" },
     examples: {
       type: Type.ARRAY,
       items: {
@@ -28,18 +28,27 @@ const WORD_SCHEMA = {
   required: ["word", "phonetic", "partOfSpeech", "definition", "definitionTurkish", "examples", "cefrLevel"]
 };
 
+const getLevelDescription = (level: string) => {
+  if (level === 'A1' || level === 'A2' || level === 'A2+') return "essential everyday and foundational";
+  if (level === 'B1' || level === 'B1+') return "practical and commonly used intermediate";
+  if (level === 'B2') return "sophisticated and versatile upper-intermediate";
+  if (level === 'C1') return "advanced, academic, and professional";
+  if (level === 'C2') return "highly nuanced, literary, and near-native proficiency";
+  return "various proficiency level";
+};
+
 export const fetchAdvancedVocabulary = async (request: VocabularyRequest, excludeWords: string[] = []): Promise<WordEntry[]> => {
-  const levelPrompt = request.level === 'Mixed' ? 'B2 or C1' : request.level;
+  const levelPrompt = request.level === 'Mixed' ? 'A1 to C2' : request.level;
+  const desc = getLevelDescription(request.level);
   const randomSalt = Math.random().toString(36).substring(7);
   const excludeStr = excludeWords.length > 0 ? `CRITICAL: Do NOT use any of these words: ${excludeWords.join(', ')}.` : '';
 
-  const prompt = `Generate exactly ${request.count} unique, challenging, and sophisticated English vocabulary words at ${levelPrompt} level. 
+  const prompt = `Generate exactly ${request.count} unique ${desc} English vocabulary words strictly at ${levelPrompt} level. 
   
   CRITICAL INSTRUCTIONS:
-  1. The selection must be COMPLETELY RANDOM from the entire B2/C1 lexicon. 
-  2. Avoid basic words; focus on nuanced academic, literary, or professional terms.
-  3. ${excludeStr}
-  4. Ensure this set is unique (Salt: ${randomSalt}).
+  1. The selection must be COMPLETELY RANDOM from the appropriate lexicon for the level. 
+  2. ${excludeStr}
+  3. Ensure this set is unique (Salt: ${randomSalt}).
   
   Format the output as a JSON array of word objects.`;
 
@@ -65,14 +74,15 @@ export const fetchAdvancedVocabulary = async (request: VocabularyRequest, exclud
   }
 };
 
-export const fetchSingleRandomWord = async (level: 'B2' | 'C1' | 'Mixed', excludeWords: string[] = []): Promise<WordEntry> => {
-  const levelPrompt = level === 'Mixed' ? 'B2 or C1' : level;
+export const fetchSingleRandomWord = async (level: string, excludeWords: string[] = []): Promise<WordEntry> => {
+  const levelPrompt = level === 'Mixed' ? 'A1 to C2' : level;
+  const desc = getLevelDescription(level);
   const randomSalt = Math.random().toString(36).substring(7);
   const excludeStr = excludeWords.length > 0 ? `CRITICAL: Do NOT include any of these words: ${excludeWords.join(', ')}.` : '';
 
-  const prompt = `Generate exactly ONE unique and challenging English vocabulary word at ${levelPrompt} level. 
+  const prompt = `Generate exactly ONE unique and ${desc} English vocabulary word strictly at ${levelPrompt} level. 
   ${excludeStr}
-  Focus on academic or sophisticated professional vocabulary. (Salt: ${randomSalt}).
+  Focus on context-appropriate vocabulary. (Salt: ${randomSalt}).
   
   Format the output as a single JSON word object.`;
 
@@ -120,7 +130,7 @@ export const fetchWordAudio = async (word: string): Promise<string> => {
 };
 
 export const fetchExtraExample = async (word: string, currentExamples: string[]): Promise<ExampleSentence> => {
-  const prompt = `Generate one additional sophisticated B2/C1 level example sentence for the word "${word}".
+  const prompt = `Generate one additional level-appropriate example sentence for the word "${word}".
   
   Avoid these existing examples: ${currentExamples.join(' | ')}.
   Provide the English sentence and its Turkish translation.`;

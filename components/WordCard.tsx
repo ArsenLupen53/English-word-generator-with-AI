@@ -78,6 +78,13 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
     }
   };
 
+  const getLevelColor = (level: string) => {
+    if (level.startsWith('A')) return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+    if (level.startsWith('B')) return 'bg-sky-50 text-sky-600 border-sky-100';
+    if (level.startsWith('C')) return 'bg-purple-50 text-purple-600 border-purple-100';
+    return 'bg-slate-50 text-slate-600 border-slate-100';
+  };
+
   const allExamples = [...entry.examples, ...extraExamples];
 
   return (
@@ -103,7 +110,7 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
               >
                 <i className={`fas ${isPlaying ? 'fa-volume-up animate-pulse' : 'fa-volume-high'}`}></i>
               </button>
-              <span className="text-sm font-medium px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getLevelColor(entry.cefrLevel)}`}>
                 {entry.cefrLevel}
               </span>
             </div>

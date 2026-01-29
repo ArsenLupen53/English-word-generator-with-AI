@@ -83,7 +83,6 @@ const App: React.FC = () => {
     } else {
       const parsed = parseInt(val, 10);
       if (!isNaN(parsed)) {
-        // Clamp between 1 and MAX_WORD_COUNT, but allow temporary typing
         setCount(Math.min(MAX_WORD_COUNT, parsed));
       }
     }
@@ -98,7 +97,7 @@ const App: React.FC = () => {
           {APP_TITLE}
         </h1>
         <p className="text-lg text-slate-600 font-light max-w-xl mx-auto">
-          {APP_SUBTITLE} — Kelime dağarcığınızı B2 ve C1 seviyesinde rastgele kelimelerle geliştirin.
+          {APP_SUBTITLE} — Kelime dağarcığınızı A1'den C2'ye dilediğiniz seviyede rastgele kelimelerle geliştirin.
         </p>
       </header>
 
@@ -153,7 +152,7 @@ const App: React.FC = () => {
             ) : (
               <>
                 <i className="fas fa-sync-alt group-hover:rotate-180 transition-transform duration-500"></i>
-                Tümünü Yenile
+                Kelimeleri Getir
               </>
             )}
           </button>
@@ -207,7 +206,7 @@ const App: React.FC = () => {
             <div className="text-slate-400 mb-4">
               <i className="fas fa-random text-6xl opacity-20"></i>
             </div>
-            <p className="text-slate-500 font-medium italic">Her tıklamada tamamen yeni ve rastgele kelimeler üretilir.</p>
+            <p className="text-slate-500 font-medium italic">Her tıklamada tamamen yeni ve seviyeye uygun kelimeler üretilir.</p>
             <p className="text-slate-400 text-sm mt-2">Kartlardaki yenileme butonuna basarak tekil kelimeleri de değiştirebilirsiniz.</p>
           </div>
         )}
@@ -215,7 +214,7 @@ const App: React.FC = () => {
 
       <footer className="mt-20 pt-10 border-t border-slate-200 text-center">
         <p className="text-slate-400 text-sm">
-          Powered by Gemini AI &bull; {new Date().getFullYear()} LinguistPro
+          Powered by Gemini AI & bull; {new Date().getFullYear()} LinguistPro
         </p>
       </footer>
     </div>

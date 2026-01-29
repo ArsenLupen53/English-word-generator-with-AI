@@ -4,6 +4,8 @@ export interface ExampleSentence {
   turkish: string;
 }
 
+export type CEFRLevel = 'A1' | 'A2' | 'A2+' | 'B1' | 'B1+' | 'B2' | 'C1' | 'C2';
+
 export interface WordEntry {
   word: string;
   phonetic: string;
@@ -11,10 +13,10 @@ export interface WordEntry {
   definition: string;
   definitionTurkish: string;
   examples: ExampleSentence[];
-  cefrLevel: 'B2' | 'C1';
+  cefrLevel: CEFRLevel;
 }
 
 export interface VocabularyRequest {
   count: number;
-  level: 'B2' | 'C1' | 'Mixed';
+  level: CEFRLevel | 'Mixed';
 }
