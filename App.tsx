@@ -268,15 +268,41 @@ const App: React.FC = () => {
 
         {/* Story Section */}
         {story && (
-          <div id="story-container" className="mt-12 bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-500">
-            <div className="flex items-center gap-3 mb-6 border-b border-indigo-800 pb-4">
-              <i className="fas fa-feather-pointed text-indigo-400 text-2xl"></i>
-              <div>
-                <h3 className="text-xl font-serif font-bold">Bağlamsal Kullanım</h3>
-                <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest">Yapay Zeka Tarafından Üretildi</p>
+          <div id="story-container" className="mt-12 bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-500 relative overflow-hidden group/story">
+            <div className="flex items-center justify-between gap-3 mb-6 border-b border-indigo-800 pb-4">
+              <div className="flex items-center gap-3">
+                <i className="fas fa-feather-pointed text-indigo-400 text-2xl"></i>
+                <div>
+                  <h3 className="text-xl font-serif font-bold">Bağlamsal Kullanım</h3>
+                  <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest">Yapay Zeka Tarafından Üretildi</p>
+                </div>
               </div>
+              
+              <button 
+                onClick={handleGenerateStory}
+                disabled={isGeneratingStory}
+                className="flex items-center gap-2 bg-indigo-800/50 hover:bg-indigo-700 text-indigo-100 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-700/50 active:scale-95 disabled:opacity-50"
+                title="Metni Beğenmediniz mi? Yeniden Üretin"
+              >
+                {isGeneratingStory ? (
+                  <i className="fas fa-circle-notch animate-spin"></i>
+                ) : (
+                  <i className="fas fa-rotate-right"></i>
+                )}
+                {isGeneratingStory ? 'Yenileniyor...' : 'Yeniden Üret'}
+              </button>
             </div>
-            <div className="space-y-8">
+            
+            <div className="space-y-8 relative">
+              {isGeneratingStory && (
+                <div className="absolute inset-0 bg-indigo-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
+                   <div className="flex flex-col items-center gap-2">
+                     <i className="fas fa-wand-magic-sparkles animate-pulse text-indigo-400 text-2xl"></i>
+                     <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Yeni Metin Yazılıyor...</span>
+                   </div>
+                </div>
+              )}
+              
               <div>
                 <p className="text-xl leading-relaxed font-light italic">
                   {renderMarkdown(story.english)}
@@ -288,6 +314,7 @@ const App: React.FC = () => {
                 </p>
               </div>
             </div>
+            
             <div className="mt-6 flex flex-wrap gap-2">
                {Array.from(selectedWords).map(w => (
                  <span key={w} className="px-2 py-1 bg-indigo-700 text-indigo-100 text-[10px] font-bold rounded-lg border border-indigo-600">
