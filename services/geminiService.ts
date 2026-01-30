@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { WordEntry, VocabularyRequest, ExampleSentence } from "../types";
+import { WordEntry, VocabularyRequest, ExampleSentence, GeneratedStory } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -157,5 +157,41 @@ export const fetchExtraExample = async (word: string, currentExamples: string[])
   } catch (error) {
     console.error("Error fetching extra example:", error);
     throw new Error("Yeni örnek oluşturulurken bir hata oluştu.");
+  }
+};
+
+export const generateStoryWithWords = async (words: string[], level: string): Promise<GeneratedStory> => {
+  const levelPrompt = level === 'Mixed' ? 'A1 to C2' : level;
+  const prompt = `Write a coherent, short, and level-appropriate English paragraph (CEFR level: ${levelPrompt}) that incorporates ALL of the following words: ${words.join(', ')}.
+  
+  IMPORTANT:
+  1. The paragraph must be natural and contextually meaningful.
+  2. Bold the words ${words.join(', ')} when they appear in the English text using markdown (e.g., **word**).
+  3. Provide a high-quality Turkish translation of the entire paragraph.
+  
+  Format the output as a JSON object.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            english: { type: Type.STRING },
+            turkish: { type: Type.STRING }
+          },
+          required: ["english", "turkish"]
+        }
+      }
+    });
+
+    const jsonStr = response.text.trim();
+    return JSON.parse(jsonStr) as GeneratedStory;
+  } catch (error) {
+    console.error("Error generating story:", error);
+    throw new Error("Metin oluşturulurken bir hata oluştu.");
   }
 };

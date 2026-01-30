@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { fetchAdvancedVocabulary, fetchSingleRandomWord } from './services/geminiService';
-import { WordEntry, VocabularyRequest } from './types';
+import { fetchAdvancedVocabulary, fetchSingleRandomWord, generateStoryWithWords } from './services/geminiService';
+import { WordEntry, VocabularyRequest, GeneratedStory } from './types';
 import { WordCard } from './components/WordCard';
 import { APP_TITLE, APP_SUBTITLE, DEFAULT_WORD_COUNT, MAX_WORD_COUNT, LEVELS } from './constants';
 
@@ -10,10 +10,15 @@ const App: React.FC = () => {
   const [refreshingIndices, setRefreshingIndices] = useState<Set<number>>(new Set());
   const [words, setWords] = useState<WordEntry[]>([]);
   const [seenWords, setSeenWords] = useState<Set<string>>(new Set());
+  const [selectedWords, setSelectedWords] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState<number | ''>(DEFAULT_WORD_COUNT);
   const [level, setLevel] = useState<VocabularyRequest['level']>('Mixed');
   const [lastRequest, setLastRequest] = useState<{ count: number; level: string } | null>(null);
+
+  // Story generation state
+  const [isGeneratingStory, setIsGeneratingStory] = useState(false);
+  const [story, setStory] = useState<GeneratedStory | null>(null);
 
   // Helper to add words to memory
   const addToSeen = (newWords: string[]) => {
@@ -29,9 +34,10 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setWords([]); 
+    setSelectedWords(new Set());
+    setStory(null);
     
     try {
-      // Pass all seen words to exclude them
       const result = await fetchAdvancedVocabulary({ count: finalCount, level }, Array.from(seenWords));
       setWords(result);
       addToSeen(result.map(w => w.word));
@@ -50,8 +56,9 @@ const App: React.FC = () => {
     setRefreshingIndices(prev => new Set(prev).add(index));
     setError(null);
 
+    const oldWord = words[index].word;
+
     try {
-      // Exclude everything seen in this session + currently displayed words
       const exclude = Array.from(new Set([
         ...Array.from(seenWords),
         ...words.map(w => w.word.toLowerCase().trim())
@@ -65,6 +72,13 @@ const App: React.FC = () => {
         return next;
       });
       addToSeen([newWord.word]);
+      
+      // Clear from selected if the word was replaced
+      setSelectedWords(prev => {
+        const next = new Set(prev);
+        next.delete(oldWord);
+        return next;
+      });
     } catch (err: any) {
       setError(err.message || "Kelime güncellenemedi.");
     } finally {
@@ -73,6 +87,32 @@ const App: React.FC = () => {
         next.delete(index);
         return next;
       });
+    }
+  };
+
+  const toggleSelectWord = (word: string, isSelected: boolean) => {
+    setSelectedWords(prev => {
+      const next = new Set(prev);
+      if (isSelected) next.add(word);
+      else next.delete(word);
+      return next;
+    });
+  };
+
+  const handleGenerateStory = async () => {
+    if (selectedWords.size === 0) return;
+    setIsGeneratingStory(true);
+    setError(null);
+    try {
+      const result = await generateStoryWithWords(Array.from(selectedWords), level);
+      setStory(result);
+      setTimeout(() => {
+        document.getElementById('story-container')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err: any) {
+      setError(err.message || "Metin oluşturulurken bir hata oluştu.");
+    } finally {
+      setIsGeneratingStory(false);
     }
   };
 
@@ -90,14 +130,21 @@ const App: React.FC = () => {
 
   const getLevelLabel = (id: string) => LEVELS.find(l => l.id === id)?.label || id;
 
+  const renderMarkdown = (text: string) => {
+    // Simple bolding helper since we don't have a markdown lib
+    return text.split('**').map((part, i) => 
+      i % 2 === 1 ? <strong key={i} className="text-indigo-600 font-bold">{part}</strong> : part
+    );
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12 md:py-20">
+    <div className="max-w-4xl mx-auto px-4 py-12 md:py-20 pb-40">
       <header className="text-center mb-12">
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-slate-900 mb-4 tracking-tight">
           {APP_TITLE}
         </h1>
         <p className="text-lg text-slate-600 font-light max-w-xl mx-auto">
-          {APP_SUBTITLE} — Kelime dağarcığınızı A1'den C2'ye dilediğiniz seviyede rastgele kelimelerle geliştirin.
+          {APP_SUBTITLE} — Kelime dağarcığınızı seviyenize uygun rastgele kelimeler ve akıllı metinlerle geliştirin.
         </p>
       </header>
 
@@ -192,15 +239,23 @@ const App: React.FC = () => {
              <p className="animate-pulse font-medium">Gemini AI geniş kelime haznesini tarıyor...</p>
           </div>
         ) : words.length > 0 ? (
-          words.map((word, index) => (
-            <div key={`${word.word}-${index}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both" style={{ animationDelay: `${index * 50}ms` }}>
-              <WordCard 
-                entry={word} 
-                onRefresh={() => handleRefreshSingleWord(index)}
-                isRefreshing={refreshingIndices.has(index)}
-              />
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-100 p-3 rounded-xl text-amber-700 text-xs flex items-center gap-3 mb-4">
+              <i className="fas fa-info-circle"></i>
+              <span>Kelimeleri seçerek aşağıdan toplu bir metin oluşturabilirsiniz.</span>
             </div>
-          ))
+            {words.map((word, index) => (
+              <div key={`${word.word}-${index}`} className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both" style={{ animationDelay: `${index * 50}ms` }}>
+                <WordCard 
+                  entry={word} 
+                  onRefresh={() => handleRefreshSingleWord(index)}
+                  isRefreshing={refreshingIndices.has(index)}
+                  isSelected={selectedWords.has(word.word)}
+                  onSelect={(sel) => toggleSelectWord(word.word, sel)}
+                />
+              </div>
+            ))}
+          </div>
         ) : !error && (
           <div className="text-center py-20 bg-slate-100/50 rounded-3xl border-2 border-dashed border-slate-300">
             <div className="text-slate-400 mb-4">
@@ -210,11 +265,80 @@ const App: React.FC = () => {
             <p className="text-slate-400 text-sm mt-2">Kartlardaki yenileme butonuna basarak tekil kelimeleri de değiştirebilirsiniz.</p>
           </div>
         )}
+
+        {/* Story Section */}
+        {story && (
+          <div id="story-container" className="mt-12 bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-500">
+            <div className="flex items-center gap-3 mb-6 border-b border-indigo-800 pb-4">
+              <i className="fas fa-feather-pointed text-indigo-400 text-2xl"></i>
+              <div>
+                <h3 className="text-xl font-serif font-bold">Bağlamsal Kullanım</h3>
+                <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest">Yapay Zeka Tarafından Üretildi</p>
+              </div>
+            </div>
+            <div className="space-y-8">
+              <div>
+                <p className="text-xl leading-relaxed font-light italic">
+                  {renderMarkdown(story.english)}
+                </p>
+              </div>
+              <div className="bg-indigo-800/50 p-6 rounded-2xl border border-indigo-700/50">
+                <p className="text-indigo-200 leading-relaxed italic">
+                  {story.turkish}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+               {Array.from(selectedWords).map(w => (
+                 <span key={w} className="px-2 py-1 bg-indigo-700 text-indigo-100 text-[10px] font-bold rounded-lg border border-indigo-600">
+                   {w}
+                 </span>
+               ))}
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Floating Selection Bar */}
+      {selectedWords.size > 0 && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl z-50 animate-in slide-in-from-bottom-10 duration-500">
+          <div className="bg-white/80 backdrop-blur-xl border border-indigo-100 shadow-2xl rounded-2xl p-4 flex items-center justify-between ring-1 ring-slate-200">
+            <div className="flex items-center gap-4">
+              <div className="bg-indigo-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-indigo-200 shadow-lg">
+                {selectedWords.size}
+              </div>
+              <div>
+                <p className="text-slate-900 font-bold text-sm">Kelime Seçildi</p>
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-tight">Kullanım Metni Hazırlanabilir</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setSelectedWords(new Set())}
+                className="px-4 py-2 text-slate-400 hover:text-slate-600 text-xs font-bold transition-colors"
+              >
+                Seçimi Temizle
+              </button>
+              <button 
+                onClick={handleGenerateStory}
+                disabled={isGeneratingStory}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isGeneratingStory ? (
+                  <i className="fas fa-circle-notch animate-spin"></i>
+                ) : (
+                  <i className="fas fa-wand-magic-sparkles"></i>
+                )}
+                {isGeneratingStory ? 'Hazırlanıyor...' : 'Metin Oluştur'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className="mt-20 pt-10 border-t border-slate-200 text-center">
         <p className="text-slate-400 text-sm">
-          Powered by Gemini AI & bull; {new Date().getFullYear()} LinguistPro
+          Powered by Gemini AI &bull; {new Date().getFullYear()} LinguistPro
         </p>
       </footer>
     </div>

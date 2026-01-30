@@ -7,6 +7,8 @@ interface WordCardProps {
   entry: WordEntry;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  isSelected?: boolean;
+  onSelect?: (selected: boolean) => void;
 }
 
 // Audio decoding utilities
@@ -39,7 +41,7 @@ async function decodeAudioData(
   return buffer;
 }
 
-export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshing }) => {
+export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshing, isSelected, onSelect }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [extraExamples, setExtraExamples] = useState<ExampleSentence[]>([]);
   const [isLoadingExample, setIsLoadingExample] = useState(false);
@@ -88,13 +90,28 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
   const allExamples = [...entry.examples, ...extraExamples];
 
   return (
-    <div className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 mb-6 group relative ${isRefreshing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+    <div 
+      className={`bg-white rounded-2xl shadow-lg transition-all duration-300 overflow-hidden border-2 mb-6 group relative cursor-default
+        ${isSelected ? 'border-indigo-500 ring-4 ring-indigo-50/50 shadow-indigo-100' : 'border-transparent border-b-gray-100 hover:border-indigo-200'}
+        ${isRefreshing ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}
+    >
       {isRefreshing && (
         <div className="absolute inset-0 flex items-center justify-center bg-white/40 z-10 backdrop-blur-[1px]">
           <i className="fas fa-circle-notch animate-spin text-indigo-600 text-3xl"></i>
         </div>
       )}
       
+      {/* Selection Toggle Overlay */}
+      <button 
+        onClick={() => onSelect?.(!isSelected)}
+        className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all"
+        title={isSelected ? "Seçimi Kaldır" : "Metin İçin Seç"}
+      >
+        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-200 text-transparent hover:border-indigo-400'}`}>
+          <i className="fas fa-check text-[10px]"></i>
+        </div>
+      </button>
+
       <div className="p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div className="flex flex-col gap-1">
@@ -121,18 +138,20 @@ export const WordCard: React.FC<WordCardProps> = ({ entry, onRefresh, isRefreshi
             </div>
           </div>
           
-          {onRefresh && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onRefresh();
-              }}
-              title="Bu kelimeyi değiştir"
-              className="p-2.5 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-100 hover:border-indigo-100"
-            >
-              <i className={`fas fa-sync-alt ${isRefreshing ? 'animate-spin' : ''}`}></i>
-            </button>
-          )}
+          <div className="flex items-center gap-2 pr-10">
+             {onRefresh && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRefresh();
+                }}
+                title="Bu kelimeyi değiştir"
+                className="p-2.5 rounded-full bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-100 hover:border-indigo-100"
+              >
+                <i className={`fas fa-sync-alt ${isRefreshing ? 'animate-spin' : ''}`}></i>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="mb-6">

@@ -20,3 +20,8 @@ export interface VocabularyRequest {
   count: number;
   level: CEFRLevel | 'Mixed';
 }
+
+export interface GeneratedStory {
+  english: string;
+  turkish: string;
+}
