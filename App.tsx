@@ -16,9 +16,9 @@ const App: React.FC = () => {
   const [level, setLevel] = useState<VocabularyRequest['level']>('Mixed');
   const [lastRequest, setLastRequest] = useState<{ count: number; level: string } | null>(null);
 
-  // Story generation state
+  // Story generation state - Changed to an array for multiple stories
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
-  const [story, setStory] = useState<GeneratedStory | null>(null);
+  const [stories, setStories] = useState<GeneratedStory[]>([]);
 
   // Helper to add words to memory
   const addToSeen = (newWords: string[]) => {
@@ -35,7 +35,7 @@ const App: React.FC = () => {
     setError(null);
     setWords([]); 
     setSelectedWords(new Set());
-    setStory(null);
+    setStories([]);
     
     try {
       const result = await fetchAdvancedVocabulary({ count: finalCount, level }, Array.from(seenWords));
@@ -99,16 +99,29 @@ const App: React.FC = () => {
     });
   };
 
-  const handleGenerateStory = async () => {
+  // mode: 'init' = fresh start, 'replace' = regenerate last, 'append' = add new
+  const handleGenerateStory = async (mode: 'init' | 'replace' | 'append' = 'init') => {
     if (selectedWords.size === 0) return;
     setIsGeneratingStory(true);
     setError(null);
     try {
       const result = await generateStoryWithWords(Array.from(selectedWords), level);
-      setStory(result);
-      setTimeout(() => {
-        document.getElementById('story-container')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      
+      setStories(prev => {
+        if (mode === 'init') return [result];
+        if (mode === 'replace') {
+          const next = [...prev];
+          next[next.length - 1] = result;
+          return next;
+        }
+        return [...prev, result];
+      });
+
+      if (mode === 'init') {
+        setTimeout(() => {
+          document.getElementById('story-container')?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
     } catch (err: any) {
       setError(err.message || "Metin oluşturulurken bir hata oluştu.");
     } finally {
@@ -131,7 +144,6 @@ const App: React.FC = () => {
   const getLevelLabel = (id: string) => LEVELS.find(l => l.id === id)?.label || id;
 
   const renderMarkdown = (text: string) => {
-    // Simple bolding helper since we don't have a markdown lib
     return text.split('**').map((part, i) => 
       i % 2 === 1 ? <strong key={i} className="text-indigo-600 font-bold">{part}</strong> : part
     );
@@ -267,60 +279,87 @@ const App: React.FC = () => {
         )}
 
         {/* Story Section */}
-        {story && (
-          <div id="story-container" className="mt-12 bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-500 relative overflow-hidden group/story">
-            <div className="flex items-center justify-between gap-3 mb-6 border-b border-indigo-800 pb-4">
-              <div className="flex items-center gap-3">
-                <i className="fas fa-feather-pointed text-indigo-400 text-2xl"></i>
-                <div>
-                  <h3 className="text-xl font-serif font-bold">Bağlamsal Kullanım</h3>
-                  <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest">Yapay Zeka Tarafından Üretildi</p>
+        {stories.length > 0 && (
+          <div id="story-container" className="mt-12 space-y-6">
+            <div className="flex items-center justify-between px-4">
+               <h3 className="text-2xl font-serif font-bold text-slate-800">Bağlamsal Kullanımlar</h3>
+               <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full uppercase tracking-widest">
+                 {stories.length} Versiyon
+               </span>
+            </div>
+            
+            <div className="space-y-6">
+              {stories.map((story, sIdx) => (
+                <div 
+                  key={sIdx} 
+                  className="bg-indigo-900 text-white rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-500 relative overflow-hidden group/story"
+                >
+                  <div className="flex items-center justify-between gap-3 mb-6 border-b border-indigo-800 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-indigo-200 border border-indigo-600">
+                        {sIdx + 1}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-serif font-bold">Örnek Kullanım</h3>
+                        <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-widest">Yapay Zeka Tarafından Üretildi</p>
+                      </div>
+                    </div>
+                    
+                    {sIdx === stories.length - 1 && (
+                      <button 
+                        onClick={() => handleGenerateStory('replace')}
+                        disabled={isGeneratingStory}
+                        className="flex items-center gap-2 bg-indigo-800/50 hover:bg-indigo-700 text-indigo-100 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-700/50 active:scale-95 disabled:opacity-50"
+                        title="Bu Metni Beğenmediniz mi? Yeniden Üretin"
+                      >
+                        {isGeneratingStory ? (
+                          <i className="fas fa-circle-notch animate-spin"></i>
+                        ) : (
+                          <i className="fas fa-rotate-right"></i>
+                        )}
+                        {isGeneratingStory ? 'Yenileniyor...' : 'Yeniden Üret'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-8 relative">
+                    {isGeneratingStory && sIdx === stories.length - 1 && (
+                      <div className="absolute inset-0 bg-indigo-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
+                         <div className="flex flex-col items-center gap-2">
+                           <i className="fas fa-wand-magic-sparkles animate-pulse text-indigo-400 text-2xl"></i>
+                           <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Yeni Metin Yazılıyor...</span>
+                         </div>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <p className="text-xl leading-relaxed font-light italic">
+                        {renderMarkdown(story.english)}
+                      </p>
+                    </div>
+                    <div className="bg-indigo-800/50 p-6 rounded-2xl border border-indigo-700/50">
+                      <p className="text-indigo-200 leading-relaxed italic">
+                        {story.turkish}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              <button 
-                onClick={handleGenerateStory}
+              ))}
+            </div>
+
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={() => handleGenerateStory('append')}
                 disabled={isGeneratingStory}
-                className="flex items-center gap-2 bg-indigo-800/50 hover:bg-indigo-700 text-indigo-100 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-indigo-700/50 active:scale-95 disabled:opacity-50"
-                title="Metni Beğenmediniz mi? Yeniden Üretin"
+                className="flex items-center gap-3 bg-white hover:bg-slate-50 text-indigo-600 px-8 py-4 rounded-2xl font-bold shadow-lg border border-indigo-100 transition-all active:scale-95 disabled:opacity-50"
               >
                 {isGeneratingStory ? (
                   <i className="fas fa-circle-notch animate-spin"></i>
                 ) : (
-                  <i className="fas fa-rotate-right"></i>
+                  <i className="fas fa-plus-circle"></i>
                 )}
-                {isGeneratingStory ? 'Yenileniyor...' : 'Yeniden Üret'}
+                {isGeneratingStory ? 'Yeni Metin Hazırlanıyor...' : 'Yeni Metin Ekle'}
               </button>
-            </div>
-            
-            <div className="space-y-8 relative">
-              {isGeneratingStory && (
-                <div className="absolute inset-0 bg-indigo-900/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-xl">
-                   <div className="flex flex-col items-center gap-2">
-                     <i className="fas fa-wand-magic-sparkles animate-pulse text-indigo-400 text-2xl"></i>
-                     <span className="text-xs font-bold text-indigo-200 uppercase tracking-widest">Yeni Metin Yazılıyor...</span>
-                   </div>
-                </div>
-              )}
-              
-              <div>
-                <p className="text-xl leading-relaxed font-light italic">
-                  {renderMarkdown(story.english)}
-                </p>
-              </div>
-              <div className="bg-indigo-800/50 p-6 rounded-2xl border border-indigo-700/50">
-                <p className="text-indigo-200 leading-relaxed italic">
-                  {story.turkish}
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-6 flex flex-wrap gap-2">
-               {Array.from(selectedWords).map(w => (
-                 <span key={w} className="px-2 py-1 bg-indigo-700 text-indigo-100 text-[10px] font-bold rounded-lg border border-indigo-600">
-                   {w}
-                 </span>
-               ))}
             </div>
           </div>
         )}
@@ -347,7 +386,7 @@ const App: React.FC = () => {
                 Seçimi Temizle
               </button>
               <button 
-                onClick={handleGenerateStory}
+                onClick={() => handleGenerateStory('init')}
                 disabled={isGeneratingStory}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
               >
